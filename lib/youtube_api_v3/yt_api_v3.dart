@@ -7,25 +7,26 @@ class YTAPIV3 {
   String playlistId;
   String prevPageToken;
   String nextPageToken;
-  int    maxResults;
+  int maxResults;
   String key;
 
   YTAPIV3(key, {int maxResults: 10}) {
     this.maxResults = maxResults;
-    this.key       = key;
+    this.key = key;
   }
 
   Future<List<YT_API>> getPlaylistItems(String playlistId) async {
     this.playlistId = playlistId;
     Object options = {
       "playlistId": playlistId,
-      "part": "snippet",
+      //ADD: "contentDetails" to get videoId
+      "part": "snippet,contentDetails",
       "maxResults": "${this.maxResults}",
       "key": "${this.key}",
     };
 
-    Uri url      = new Uri.https(baseURL, "youtube/v3/playlistItems", options);
-    var res      = await http.get(url, headers: {"Accept": "application/json"});
+    Uri url = new Uri.https(baseURL, "youtube/v3/playlistItems", options);
+    var res = await http.get(url, headers: {"Accept": "application/json"});
     var jsonData = json.decode(res.body);
     print(res.body);
     if (jsonData['error'] != null) {
@@ -37,7 +38,7 @@ class YTAPIV3 {
   }
 
   Uri videoUri(List<String> videoId) {
-    int length      = videoId.length;
+    int length = videoId.length;
     String videoIds = videoId.join(',');
     var options = {
       "part": "contentDetails",
@@ -62,7 +63,7 @@ class YTAPIV3 {
     if (jsonData == null) return [];
 
     int total = jsonData['pageInfo']['totalResults'] <
-        jsonData['pageInfo']['resultsPerPage']
+            jsonData['pageInfo']['resultsPerPage']
         ? jsonData['pageInfo']['totalResults']
         : jsonData['pageInfo']['resultsPerPage'];
 
@@ -77,7 +78,7 @@ class YTAPIV3 {
     if (jsonData == null) return [];
     nextPageToken = jsonData['nextPageToken'];
     int total = jsonData['pageInfo']['totalResults'] <
-        jsonData['pageInfo']['resultsPerPage']
+            jsonData['pageInfo']['resultsPerPage']
         ? jsonData['pageInfo']['totalResults']
         : jsonData['pageInfo']['resultsPerPage'];
     print("total $total");
@@ -86,12 +87,11 @@ class YTAPIV3 {
   }
 
   Future<List<YT_API>> _getListOfYTAPIs(dynamic data, int total) async {
-    List<YT_API> result      = [];
+    List<YT_API> result = [];
     List<String> videoIdList = [];
     for (int i = 0; i < total; i++) {
       print("_getListOfYTAPIs $i $total");
-      YT_API ytApiObj =
-      new YT_API(data['items'][i], getTrendingVideo: false);
+      YT_API ytApiObj = new YT_API(data['items'][i], getTrendingVideo: false);
       if (ytApiObj.kind == "video") videoIdList.add(ytApiObj.id);
       result.add(ytApiObj);
     }
@@ -166,7 +166,6 @@ class YTAPIV3 {
     }
     return result;
   }
-
 }
 
 ///
@@ -176,6 +175,7 @@ class YT_API {
   dynamic thumbnail;
   String kind,
       id,
+      videoId,
       publishedAt,
       channelId,
       channelurl,
@@ -191,15 +191,18 @@ class YT_API {
       'medium': data['snippet']['thumbnails']['medium'],
       'high': data['snippet']['thumbnails']['high']
     };
-    kind          = 'video';
-    id            = data['id'];
-    url           = getURL(kind, id);
-    publishedAt   = data['snippet']['publishedAt'];
-    channelId     = data['snippet']['channelId'];
-    channelurl    = "https://www.youtube.com/channel/$channelId";
-    title         = data['snippet']['title'];
-    description   = data['snippet']['description'];
-    channelTitle  = data['snippet']['channelTitle'];
+    kind = 'video';
+    id = data['id'];
+    // FIXED: using videoid instead of id for correct url that is playable
+    videoId = data['contentDetails']['videoId'];
+    url = getURL(kind, data['contentDetails']['videoId']);
+    //
+    publishedAt = data['snippet']['publishedAt'];
+    channelId = data['snippet']['channelId'];
+    channelurl = "https://www.youtube.com/channel/$channelId";
+    title = data['snippet']['title'];
+    description = data['snippet']['description'];
+    channelTitle = data['snippet']['channelTitle'];
   }
 
   String getURL(String kind, String id) {
